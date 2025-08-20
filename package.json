@@ -7,7 +7,8 @@
     "mcp": "npx n8n-mcp",
     "dev": "mastra dev --dir src",
     "build": "mastra build --dir src",
-    "start": "mastra start"
+    "start": "mastra start",
+    "postinstall": "node ./scripts/patch-n8n-db.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.0.30",
@@ -25,5 +26,6 @@
   "devDependencies": {
     "mastra": "^0.10.21",
     "typescript": "^5.9.2"
-  }
+  },
+  "packageManager": "pnpm@10.14.0+sha512.ad27a79641b49c3e481a16a805baa71817a04bbe06a38d17e60e2eaee83f6a146c6a688125f5792e48dd5ba30e7da52a5cda4c3992b9ccf333f9ce223af84748"
 }
