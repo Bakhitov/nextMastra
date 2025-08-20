@@ -16,9 +16,9 @@ export const mastra = new Mastra({
     middleware: [
       async (c, next) => {
         try {
-          const rc = c.get('runtimeContext') as any;
+          const rc = c.get('runtimeContext');
           const headers = c.req.header.bind(c.req);
-          const map: Record<string, string> = {
+          const map = {
             provider_llm: headers('x-provider-llm') || '',
             api_key_llm: headers('x-api-key-llm') || '',
             model_llm: headers('x-model-llm') || '',
