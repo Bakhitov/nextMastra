@@ -4,6 +4,8 @@
   - Обновлён `package.json`: добавлен скрипт `postinstall`.
   - Если исходного файла нет, установка не падает — просто предупреждение.
 
+- chore(Dockerfile): установка зависимостей с `--ignore-scripts`, копирование `scripts/` и ручной запуск `patch-n8n-db.mjs` на стадии сборки образа.
+
 ## 2025-08-20
 
 - chore(mastra): добавлены Dockerfile и .dockerignore для деплоя на Railway/контейнерные платформы.
