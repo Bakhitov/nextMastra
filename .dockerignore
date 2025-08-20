@@ -1,0 +1,26 @@
+# dependencies
+node_modules
+.pnpm
+
+# build artifacts
+.mastra
+.mastra/**
+dist
+build
+
+# VCS
+.git
+.gitignore
+
+# env
+.env
+.env.*
+*.env
+*.env.*
+
+# misc
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
