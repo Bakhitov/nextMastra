@@ -20,7 +20,7 @@
     "@mastra/memory": "^0.12.2",
     "@mastra/pg": "^0.13.2",
     "concurrently": "^8.2.2",
-    "n8n-mcp": "^2.10.4",
+    "n8n-mcp": "^2.10.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {

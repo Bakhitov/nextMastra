@@ -1,0 +1,19 @@
+# deps
+**/node_modules/
+**/.pnpm/
+
+# build
+**/.next/
+**/dist/
+**/.mastra/
+.mastra/
+node_modules
+
+# env
+*.env
+*.env.*
+**/*.env
+**/*.env.*
+
+# misc
+.DS_Store

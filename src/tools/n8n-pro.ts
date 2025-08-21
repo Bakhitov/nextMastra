@@ -10,9 +10,10 @@ function resolveN8nConfig(runtimeContext?: { get: (k: RuntimeKeys | string) => u
   const rcKey = (runtimeContext?.get("api_key_by_type") as string) || process.env.N8N_API_KEY || "";
   if (!rcUrl || !rcKey) throw new Error("N8N API is not configured. Provide N8N_API_URL and N8N_API_KEY (or runtimeContext url_by_type/api_key_by_type).");
   const baseUrl = rcUrl.replace(/\/$/, "");
+  const isJwt = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(rcKey);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "X-N8N-API-KEY": rcKey,
+    ...(isJwt ? { Authorization: `Bearer ${rcKey}` } : { "X-N8N-API-KEY": rcKey }),
   };
   return { baseUrl, headers };
 }
@@ -32,6 +33,17 @@ async function n8nFetch<T>(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    // Graceful fallback for method not allowed
+    if (res.status === 405) {
+      return {
+        ok: false,
+        status: 405,
+        message: `Method Not Allowed for ${path}`,
+        details: text,
+        hint:
+          "This endpoint may be disabled on your n8n instance or requires a different auth mode. If using Public API (JWT), only a subset of endpoints is allowed.",
+      } as unknown as T;
+    }
     throw new Error(`n8n API ${init.method || "GET"} ${path} failed: ${res.status} ${res.statusText} ${text}`);
   }
   const contentType = res.headers.get("content-type") || "";
@@ -63,7 +75,7 @@ const credentialsUpdateSchema = z.object({
 export const n8n_credentials_list = createTool({
   id: "n8n_credentials_list",
   description: "List credentials from n8n: GET /api/v1/credentials. Use to discover existing credentials before assigning them to nodes. Returns minimal metadata; sensitive fields are redacted by n8n.",
-  inputSchema: z.object({}).optional(),
+  inputSchema: z.object({}),
   execute: async (args, options) => {
     return await n8nFetch(args.runtimeContext, "/api/v1/credentials", { method: "GET" }, options?.abortSignal);
   },
@@ -127,7 +139,7 @@ const variableUpdateSchema = z.object({
 export const n8n_variables_list = createTool({
   id: "n8n_variables_list",
   description: "List variables: GET /api/v1/variables. Variables are global key/value pairs resolved in expressions. Use to audit available keys.",
-  inputSchema: z.object({}).optional(),
+  inputSchema: z.object({}),
   execute: async (args, options) => {
     return await n8nFetch(args.runtimeContext, "/api/v1/variables", { method: "GET" }, options?.abortSignal);
   },
@@ -180,7 +192,7 @@ const tagUpdateSchema = z.object({
 export const n8n_tags_list = createTool({
   id: "n8n_tags_list",
   description: "List tags: GET /api/v1/tags. Tags are labels for workflows; use them for organization and filtering.",
-  inputSchema: z.object({}).optional(),
+  inputSchema: z.object({}),
   execute: async (args, options) => {
     return await n8nFetch(args.runtimeContext, "/api/v1/tags", { method: "GET" }, options?.abortSignal);
   },
@@ -224,7 +236,7 @@ export const n8n_tags_delete = createTool({
 export const n8n_source_control_status = createTool({
   id: "n8n_source_control_status",
   description: "Get source control status: GET /api/v1/source-control/status. Enterprise only. Returns repo status, branch, pending changes if configured.",
-  inputSchema: z.object({}).optional(),
+  inputSchema: z.object({}),
   execute: async (args, options) => {
     return await n8nFetch(args.runtimeContext, "/api/v1/source-control/status", { method: "GET" }, options?.abortSignal);
   },
@@ -236,7 +248,7 @@ export const n8n_source_control_pull = createTool({
   inputSchema: z.object({
     branch: z.string().optional().describe("Optional branch to pull"),
     strategy: z.enum(["theirs", "ours"]).optional().describe("Merge strategy if applicable"),
-  }).optional(),
+  }),
   execute: async (args, options) => {
     return await n8nFetch(args.runtimeContext, "/api/v1/source-control/pull", {
       method: "POST",
@@ -251,7 +263,7 @@ export const n8n_source_control_push = createTool({
   inputSchema: z.object({
     branch: z.string().optional().describe("Optional branch to push"),
     message: z.string().optional().describe("Commit message to use"),
-  }).optional(),
+  }),
   execute: async (args, options) => {
     return await n8nFetch(args.runtimeContext, "/api/v1/source-control/push", {
       method: "POST",
@@ -264,18 +276,43 @@ export const n8n_source_control_push = createTool({
 export const n8n_workflow_activate = createTool({
   id: "n8n_workflow_activate",
   description: "Activate a workflow: POST /api/v1/workflows/{id}/activate. Marks the workflow as active so triggers/schedules run. Note: Some n8n instances or MCP docs may restrict activation via API.",
-  inputSchema: z.object({ id: z.string().describe("Workflow ID") }),
+  inputSchema: z.object({ id: z.string().optional().describe("Workflow ID") }),
   execute: async (args, options) => {
-    return await n8nFetch(args.runtimeContext, `/api/v1/workflows/${encodeURIComponent(args.context.id)}/activate`, { method: "POST" }, options?.abortSignal);
+    // Try read id from args or runtimeContext (e.g., set by MCP/agent into working memory mirror)
+    const rc = args.runtimeContext as any;
+    const fromArgs = (args?.context as any)?.id as string | undefined;
+    const fromRc = typeof rc?.get === 'function' ? (rc.get('workflow_id') as string | undefined) : undefined;
+    const id = fromArgs || fromRc;
+    if (!id) {
+      return {
+        ok: false,
+        status: 400,
+        message: "Workflow ID is required to activate. Retrieve it first via MCP and store it in working memory.",
+        hint: "Use MCP to list/find workflows and write the ID to working memory (and optionally to runtimeContext as 'workflow_id').",
+      } as any;
+    }
+    return await n8nFetch(args.runtimeContext, `/api/v1/workflows/${encodeURIComponent(id)}/activate`, { method: "POST" }, options?.abortSignal);
   },
 });
 
 export const n8n_workflow_deactivate = createTool({
   id: "n8n_workflow_deactivate",
   description: "Deactivate a workflow: POST /api/v1/workflows/{id}/deactivate. Disables triggers/schedules. Use before making major edits or when pausing automation.",
-  inputSchema: z.object({ id: z.string().describe("Workflow ID") }),
+  inputSchema: z.object({ id: z.string().optional().describe("Workflow ID") }),
   execute: async (args, options) => {
-    return await n8nFetch(args.runtimeContext, `/api/v1/workflows/${encodeURIComponent(args.context.id)}/deactivate`, { method: "POST" }, options?.abortSignal);
+    const rc = args.runtimeContext as any;
+    const fromArgs = (args?.context as any)?.id as string | undefined;
+    const fromRc = typeof rc?.get === 'function' ? (rc.get('workflow_id') as string | undefined) : undefined;
+    const id = fromArgs || fromRc;
+    if (!id) {
+      return {
+        ok: false,
+        status: 400,
+        message: "Workflow ID is required to deactivate. Retrieve it first via MCP and store it in working memory.",
+        hint: "Use MCP to list/find workflows and write the ID to working memory (and optionally to runtimeContext as 'workflow_id').",
+      } as any;
+    }
+    return await n8nFetch(args.runtimeContext, `/api/v1/workflows/${encodeURIComponent(id)}/deactivate`, { method: "POST" }, options?.abortSignal);
   },
 });
 

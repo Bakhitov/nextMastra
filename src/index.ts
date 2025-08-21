@@ -14,6 +14,19 @@ export const mastra = new Mastra({
   // Middleware: прокидываем пользовательские заголовки в runtimeContext
   server: {
     middleware: [
+      // Enforce internal secret (if configured) to restrict access to Mastra server
+      async (c, next) => {
+        try {
+          const secret = process.env.MASTRA_INTERNAL_SECRET;
+          if (secret) {
+            const provided = c.req.header('x-internal-secret');
+            if (provided !== secret) {
+              return c.json({ error: 'Forbidden' }, 403);
+            }
+          }
+        } catch {}
+        await next();
+      },
       async (c, next) => {
         try {
           const rc = c.get('runtimeContext');

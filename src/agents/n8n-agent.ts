@@ -50,6 +50,8 @@ export const n8nAgent = new Agent({
    - Fix any issues found before deployment
 
 7. Deployment Phase (if n8n API configured):
+   - First, USE MCP to find or create the target Workflow and WRITE its ID into working memory (field: **Workflow ID**). If workflow does not exist, create it and persist the new ID.
+   - ONLY AFTER YOU HAVE A VALID WORKFLOW ID: use HTTP tools for deployment operations.
    - \`n8n_create_workflow(workflow)\` - Deploy validated workflow
    - \`n8n_validate_workflow({id: 'workflow-id'})\` - Post-deployment validation
    - \`n8n_update_partial_workflow()\` - Make incremental updates using diffs
@@ -154,7 +156,7 @@ The most important information should be stored in the working memory according 
 
     // fallback по умолчанию
     if (!provider || !apiKey || !modelName) {
-      return openai('gpt-4.1');
+      return openai('gpt-4.1-mini');
     }
 
     const providerStr = String(provider || '').toLowerCase();
@@ -188,6 +190,28 @@ The most important information should be stored in the working memory according 
     const envKey = process.env.N8N_API_KEY || '';
     const n8nApiUrl = role === 'pro' && proUrl && proKey ? proUrl : envUrl;
     const n8nApiKey = role === 'pro' && proUrl && proKey ? proKey : envKey;
+    // Debug logging only in non-production
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        const mask = (v: string) => {
+          const s = String(v || '');
+          if (!s) return '<empty>';
+          if (s.length <= 8) return '*'.repeat(Math.max(4, s.length));
+          return `${s.slice(0, 4)}${'*'.repeat(Math.max(4, s.length - 8))}${s.slice(-4)}`;
+        };
+        const origin = (u: string) => {
+          try { return new URL(String(u || '')).origin; } catch { return String(u || '').slice(0, 200); }
+        };
+        const source = role === 'pro' && proUrl && proKey ? 'runtimeContext(PRO)' : 'process.env';
+        // eslint-disable-next-line no-console
+        console.log('[MCP DEBUG] agent.tools config', {
+          role,
+          source,
+          url: origin(n8nApiUrl),
+          key: mask(n8nApiKey),
+        });
+      } catch {}
+    }
     // Всегда вызываем MCP
     const { client, release } = await acquireMcp({ n8nApiUrl: n8nApiUrl || '', n8nApiKey: n8nApiKey || '' });
     try {
@@ -196,6 +220,7 @@ The most important information should be stored in the working memory according 
       });
       const mcpTools = await client.getTools();
       if (role === 'pro') {
+        // Expose PRO HTTP tools; inside each tool we validate presence of workflow ID and respond gracefully
         return { ...mcpTools, ...n8nProTools } as any;
       }
       return mcpTools as any;

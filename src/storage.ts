@@ -46,7 +46,11 @@ export const storage = (() => {
     // Use explicit object config so we can control SSL verification behavior.
     return new PostgresStore(buildPgConfigFromUrl(url));
   }
-  // Fallback to default behavior (will likely fail fast informing about missing config)
+  // In production, fail fast if DATABASE_URL is missing
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('DATABASE_URL is required in production environment for Mastra storage');
+  }
+  // In non-production, allow empty connection for local development errors to surface quickly
   return new PostgresStore({ connectionString: '' });
 })();
 

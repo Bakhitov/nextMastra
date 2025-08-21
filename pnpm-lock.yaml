@@ -36,8 +36,8 @@ importers:
         specifier: ^8.2.2
         version: 8.2.2
       n8n-mcp:
-        specifier: ^2.10.4
-        version: 2.10.4
+        specifier: ^2.10.5
+        version: 2.10.5
       zod:
         specifier: ^3.25.76
         version: 3.25.76
@@ -2231,8 +2231,8 @@ packages:
   mute-stream@0.0.8:
     resolution: {integrity: sha512-nnbWWOkoWyUsTjKrhgD0dcz22mdkSnpYqbEjIm2nhwhuxlSkpywJmBo8h0ZqJdkp73mb90SssHkN4rsRaBAfAA==}
 
-  n8n-mcp@2.10.4:
-    resolution: {integrity: sha512-Gw5IM36CKqVo+gwtVyQBm0u4xcQwXJ4tiWOREcwbBHQrtwK7QvgyeZtSYMxoe2++f9liDlZb4wjF5yT0QPL2yg==}
+  n8n-mcp@2.10.5:
+    resolution: {integrity: sha512-YjdjD48gz3YDELbMvNE0XTKbYVPFr/Gbkj1K0/6xp1uOyPe6B66XiY9R9zJMd8bWxYRdmoJ+BCYxDN93SVDjpQ==}
     engines: {node: '>=16.0.0'}
     hasBin: true
 
@@ -5494,7 +5494,7 @@ snapshots:
 
   mute-stream@0.0.8: {}
 
-  n8n-mcp@2.10.4:
+  n8n-mcp@2.10.5:
     dependencies:
       '@modelcontextprotocol/sdk': 1.17.3
       axios: 1.11.0
