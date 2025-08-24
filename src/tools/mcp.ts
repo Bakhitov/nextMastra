@@ -1,5 +1,9 @@
 import { MCPClient } from "@mastra/mcp";
 import path from "node:path";
+import fs from "node:fs";
+import { promises as fsp } from "node:fs";
+import crypto from "node:crypto";
+let seedDbLoggedOnce = false;
 
 export type McpConfig = {
     n8nApiUrl: string;
@@ -75,6 +79,12 @@ function poolKey(cfg: McpConfig): string {
 }
 
 export async function acquireMcp(cfg: McpConfig): Promise<{ client: MCPClient; release: () => Promise<void> }>{
+    // Ensure DB exists for stdio mode if a local path is used
+    const effectiveDbPath = getEffectiveDbPath(cfg);
+    if (effectiveDbPath) {
+        await seedDbIfNeeded(effectiveDbPath);
+    }
+
     const key = poolKey(cfg);
     let entry = pool.get(key);
     if (!entry) {
@@ -113,4 +123,48 @@ export async function acquireMcp(cfg: McpConfig): Promise<{ client: MCPClient; r
         }
     };
     return { client: entry.client, release };
+}
+
+function getEffectiveDbPath(cfg: McpConfig): string | undefined {
+    const envLocalPath = process.env.N8N_MCP_LOCAL_PATH;
+    const basePath = cfg.mcpPath || envLocalPath;
+    if (cfg.dbPath) return cfg.dbPath;
+    if (basePath) return path.join(basePath, "data", "nodes.db");
+    return undefined;
+}
+
+async function seedDbIfNeeded(dbPath: string): Promise<void> {
+    try {
+        // If file exists and has non-zero size, skip
+        try {
+            const st = await fsp.stat(dbPath);
+            if (st.size > 0) return;
+        } catch {}
+
+        const seedUrl = process.env.N8N_DB_SEED_URL;
+        const seedSha = process.env.N8N_DB_SEED_SHA256;
+        if (!seedUrl) return; // nothing to do
+
+        const dir = path.dirname(dbPath);
+        await fsp.mkdir(dir, { recursive: true });
+
+        // Download whole file into memory (DB is expected to be ~10-200 MB)
+        const res = await fetch(seedUrl);
+        if (!res.ok) throw new Error(`Seed download failed: ${res.status} ${res.statusText}`);
+        const ab = await res.arrayBuffer();
+        const buf = Buffer.from(ab);
+
+        if (seedSha) {
+            const hash = crypto.createHash("sha256").update(buf).digest("hex");
+            if (hash !== seedSha) throw new Error(`Seed SHA256 mismatch: got ${hash}`);
+        }
+
+        await fsp.writeFile(dbPath, buf);
+    } catch (err) {
+        // Do not crash the request path; log once
+        if (!seedDbLoggedOnce) {
+            seedDbLoggedOnce = true;
+            console.error("[mcp] DB seed failed:", err);
+        }
+    }
 }
