@@ -42,6 +42,7 @@ export function createMcpClient(cfg: McpConfig): MCPClient {
         MCP_MODE: "stdio",
         LOG_LEVEL: "error",
         DISABLE_CONSOLE_OUTPUT: "true",
+        N8N_MODE: "true",
         N8N_API_URL: cfg.n8nApiUrl,
         N8N_API_KEY: cfg.n8nApiKey,
         N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: "true",
