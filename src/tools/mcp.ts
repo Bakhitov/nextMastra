@@ -4,6 +4,8 @@ import fs from "node:fs";
 import { promises as fsp } from "node:fs";
 import crypto from "node:crypto";
 let seedDbLoggedOnce = false;
+let seedDbOnceDone = false;
+let seedDbInFlight: Promise<void> | null = null;
 
 export type McpConfig = {
     n8nApiUrl: string;
@@ -135,12 +137,21 @@ function getEffectiveDbPath(cfg: McpConfig): string | undefined {
 }
 
 async function seedDbIfNeeded(dbPath: string): Promise<void> {
+    if (seedDbOnceDone) return;
+    if (seedDbInFlight) {
+        await seedDbInFlight;
+        return;
+    }
+    seedDbInFlight = (async () => {
     try {
-        // If file exists and has non-zero size, skip
-        try {
-            const st = await fsp.stat(dbPath);
-            if (st.size > 0) return;
-        } catch {}
+        const forceSeed = process.env.N8N_DB_FORCE_SEED === "true";
+        // If not forcing, and file exists and has non-zero size, skip
+        if (!forceSeed) {
+            try {
+                const st = await fsp.stat(dbPath);
+                if (st.size > 0) return;
+            } catch {}
+        }
 
         const seedUrl = process.env.N8N_DB_SEED_URL;
         const seedSha = process.env.N8N_DB_SEED_SHA256;
@@ -161,11 +172,16 @@ async function seedDbIfNeeded(dbPath: string): Promise<void> {
         }
 
         await fsp.writeFile(dbPath, buf);
+        seedDbOnceDone = true;
     } catch (err) {
         // Do not crash the request path; log once
         if (!seedDbLoggedOnce) {
             seedDbLoggedOnce = true;
             console.error("[mcp] DB seed failed:", err);
         }
+    } finally {
+        seedDbInFlight = null;
     }
+    })();
+    await seedDbInFlight;
 }
