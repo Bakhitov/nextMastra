@@ -17,3 +17,8 @@ node_modules
 
 # misc
 .DS_Store
+
+# local db files
+data/*.db
+data/*.db-shm
+data/*.db-wal

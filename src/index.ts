@@ -31,13 +31,32 @@ export const mastra = new Mastra({
         try {
           const rc = c.get('runtimeContext');
           const headers = c.req.header.bind(c.req);
+          const get = (name) => headers(name) || '';
+          const decodeMaybe = (val) => {
+            try {
+              let v = String(val || '').trim();
+              if (!v) return v;
+              // base64 format: b64:...
+              if (/^b64:/i.test(v)) {
+                try { v = Buffer.from(v.slice(4), 'base64').toString('utf8'); } catch {}
+              }
+              // url-encoded
+              if (/%[0-9A-Fa-f]{2}/.test(v)) {
+                try { v = decodeURIComponent(v); } catch {}
+              }
+              // explicit dot placeholders
+              v = v.replace(/%2E/ig, '.').replace(/__DOT__/g, '.');
+              return v;
+            } catch { return String(val || ''); }
+          };
           const map = {
             provider_llm: headers('x-provider-llm') || '',
             api_key_llm: headers('x-api-key-llm') || '',
             model_llm: headers('x-model-llm') || '',
             role: headers('x-role') || '',
-            url_by_type: headers('x-n8n-url') || '',
-            api_key_by_type: headers('x-n8n-key') || '',
+            url_by_type: decodeMaybe(get('x-n8n-url')) || '',
+            api_key_by_type: decodeMaybe(get('x-n8n-key') || get('x-n8n-key-encoded')) || '',
+            debug_tools: headers('x-debug-tools') || '',
           };
           for (const [k, v] of Object.entries(map)) {
             if (v && rc && typeof rc.set === 'function') rc.set(k, v);

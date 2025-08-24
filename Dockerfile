@@ -18,13 +18,6 @@ COPY tsconfig.json ./
 COPY src ./src
 COPY scripts ./scripts
 
-# Copy n8n-mcp database (place your file at data/nodes.db in repo)
-COPY data/nodes.db /app/data/nodes.db
-ENV NODE_DB_PATH=/app/data/nodes.db
-
-# Now that node_modules and scripts are present, perform the nodes.db patch
-RUN node ./scripts/patch-n8n-db.mjs || echo "[docker] patch-n8n-db skipped"
-
 # Build Mastra app
 RUN pnpm build
 

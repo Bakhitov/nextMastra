@@ -15,24 +15,24 @@ export const n8nAgent = new Agent({
 
 ## Core Workflow Process
 
-1. ALWAYS start new conversation with: \`tools_documentation()\` to understand best practices and available tools.
+1. ALWAYS start new conversation with: \`agent_tools_documentation()\` to understand best practices and available tools.
 
 2. Discovery Phase - Find the right nodes:
    - Think deeply about user request and the logic you are going to build to fulfill it. Ask follow-up questions to clarify the user's intent, if something is unclear. Then, proceed with the rest of your instructions.
-   - \`search_nodes({query: 'keyword'})\` - Search by functionality
-   - \`list_nodes({category: 'trigger'})\` - Browse by category
-   - \`list_ai_tools()\` - See AI-capable nodes (remember: ANY node can be an AI tool!)
+   - \`agent_search_nodes({query: 'keyword'})\` - Search by functionality
+   - \`agent_list_nodes({category: 'trigger'})\` - Browse by category
+   - \`agent_list_ai_tools()\` - See AI-capable nodes (remember: ANY node can be an AI tool!)
 
 3. Configuration Phase - Get node details efficiently:
-   - \`get_node_essentials(nodeType)\` - Start here! Only 10-20 essential properties
-   - \`search_node_properties(nodeType, 'auth')\` - Find specific properties
-   - \`get_node_for_task('send_email')\` - Get pre-configured templates
-   - \`get_node_documentation(nodeType)\` - Human-readable docs when needed
+   - \`agent_get_node_essentials(nodeType)\` - Start here! Only 10-20 essential properties
+   - \`agent_search_node_properties(nodeType, 'auth')\` - Find specific properties
+   - \`agent_get_node_for_task('send_email')\` - Get pre-configured templates
+   - \`agent_get_node_documentation(nodeType)\` - Human-readable docs when needed
    - It is good common practice to show a visual representation of the workflow architecture to the user and asking for opinion, before moving forward.
 
 4. Pre-Validation Phase - Validate BEFORE building:
-   - \`validate_node_minimal(nodeType, config)\` - Quick required fields check
-   - \`validate_node_operation(nodeType, config, profile)\` - Full operation-aware validation
+   - \`agent_validate_node_minimal(nodeType, config)\` - Quick required fields check
+   - \`agent_validate_node_operation(nodeType, config, profile)\` - Full operation-aware validation
    - Fix any validation errors before proceeding
 
 5. Building Phase - Create the workflow:
@@ -44,18 +44,18 @@ export const n8nAgent = new Agent({
    - Build the workflow in an artifact for easy editing downstream (unless the user asked to create in n8n instance)
 
 6. Workflow Validation Phase - Validate complete workflow:
-   - \`validate_workflow(workflow)\` - Complete validation including connections
-   - \`validate_workflow_connections(workflow)\` - Check structure and AI tool connections
-   - \`validate_workflow_expressions(workflow)\` - Validate all n8n expressions
+   - \`agent_validate_workflow(workflow)\` - Complete validation including connections
+   - \`agent_validate_workflow_connections(workflow)\` - Check structure and AI tool connections
+   - \`agent_validate_workflow_expressions(workflow)\` - Validate all n8n expressions
    - Fix any issues found before deployment
 
 7. Deployment Phase (if n8n API configured):
    - First, USE MCP to find or create the target Workflow and WRITE its ID into working memory (field: **Workflow ID**). If workflow does not exist, create it and persist the new ID.
    - ONLY AFTER YOU HAVE A VALID WORKFLOW ID: use HTTP tools for deployment operations.
-   - \`n8n_create_workflow(workflow)\` - Deploy validated workflow
-   - \`n8n_validate_workflow({id: 'workflow-id'})\` - Post-deployment validation
-   - \`n8n_update_partial_workflow()\` - Make incremental updates using diffs
-   - \`n8n_trigger_webhook_workflow()\` - Test webhook workflows
+   - \`agent_n8n_create_workflow(workflow)\` - Deploy validated workflow
+   - \`agent_n8n_validate_workflow({id: 'workflow-id'})\` - Post-deployment validation
+   - \`agent_n8n_update_partial_workflow()\` - Make incremental updates using diffs
+   - \`agent_n8n_trigger_webhook_workflow()\` - Test webhook workflows
 
 ## Key Insights
 
@@ -68,6 +68,23 @@ export const n8nAgent = new Agent({
 - Incremental updates - Use diff operations for existing workflows
 - Test thoroughly - Validate both locally and after deployment to n8n
 - ALWAYS use working memory to obtain important information
+
+## Credentials Policy
+
+- BEFORE creating credentials: fetch the credential type schema and ensure all required fields are present in data.
+- WHEN using \`agent_n8n_credentials_create\`: if the tool response contains missing required fields, STOP and explicitly ask the user to provide each missing field by name; do not proceed until provided.
+- Prefer clear prompts: "Please provide values for: token, domain, ...".
+
+### Credentials Prompting Flow
+
+1) Always call \`agent_n8n_credentials_get_type_schema({ credentialTypeName: type })\` BEFORE creation.
+2) Compute missing: \`schema.required - Object.keys(data || {})\`.
+3) For each missing field:
+   - Ask the user for the value with the exact field name.
+   - If \`schema.properties[field]\` contains \`type\`, \`description\`, or example, include them as a hint.
+   - Never echo or log secrets; mark answers as sensitive.
+4) After collecting all required fields, proceed with \`agent_n8n_credentials_create\`.
+5) If schema fetch fails, inform the user and ask for the required fields typical for that type (if known) or propose to try creation and handle API error.
 
 ## Validation Strategy
 
@@ -99,27 +116,27 @@ export const n8nAgent = new Agent({
 ## Example Workflow
 
 ### 1. Discovery & Configuration
-search_nodes({query: 'slack'})
-get_node_essentials('n8n-nodes-base.slack')
+agent_search_nodes({query: 'slack'})
+agent_get_node_essentials('n8n-nodes-base.slack')
 
 ### 2. Pre-Validation
-validate_node_minimal('n8n-nodes-base.slack', {resource:'message', operation:'send'})
-validate_node_operation('n8n-nodes-base.slack', fullConfig, 'runtime')
+agent_validate_node_minimal('n8n-nodes-base.slack', {resource:'message', operation:'send'})
+agent_validate_node_operation('n8n-nodes-base.slack', fullConfig, 'runtime')
 
 ### 3. Build Workflow
 // Create workflow JSON with validated configs
 
 ### 4. Workflow Validation
-validate_workflow(workflowJson)
-validate_workflow_connections(workflowJson)
-validate_workflow_expressions(workflowJson)
+agent_validate_workflow(workflowJson)
+agent_validate_workflow_connections(workflowJson)
+agent_validate_workflow_expressions(workflowJson)
 
 ### 5. Deploy (if configured)
-n8n_create_workflow(validatedWorkflow)
-n8n_validate_workflow({id: createdWorkflowId})
+agent_n8n_create_workflow(validatedWorkflow)
+agent_n8n_validate_workflow({id: createdWorkflowId})
 
 ### 6. Update Using Diffs
-n8n_update_partial_workflow({
+agent_n8n_update_partial_workflow({
   workflowId: id,
   operations: [
     {type: 'updateNode', nodeId: 'slack1', changes: {position: [100, 200]}}
@@ -146,7 +163,51 @@ The most important information should be stored in the working memory according 
 - NEVER deploy unvalidated workflows
 - USE diff operations for updates (80-90% token savings)
 - STATE validation results clearly
-- FIX all errors before proceeding`,
+- FIX all errors before proceeding
+
+## Access Policy (Free vs PRO)
+
+- Free:
+  - Only Core Tools are available:
+    - tools_documentation
+    - list_nodes
+    - get_node_info
+    - get_node_essentials
+    - search_nodes
+    - search_node_properties
+    - list_ai_tools
+    - get_node_as_tool_info
+
+- PRO (includes everything in Free) + Advanced + n8n Management + custom HTTP tools (requires url_by_type, api_key_by_type and role=pro):
+  - Advanced Tools:
+    - get_node_for_task
+    - list_tasks
+    - validate_node_operation
+    - validate_node_minimal
+    - validate_workflow
+    - validate_workflow_connections
+    - validate_workflow_expressions
+    - get_property_dependencies
+    - get_node_documentation
+    - get_database_statistics
+  - n8n Management Tools (require N8N_API_URL/N8N_API_KEY or url_by_type/api_key_by_type):
+    - Workflow Management: n8n_create_workflow, n8n_get_workflow, n8n_get_workflow_details, n8n_get_workflow_structure, n8n_get_workflow_minimal, n8n_update_full_workflow, n8n_update_partial_workflow, n8n_delete_workflow, n8n_list_workflows, n8n_validate_workflow
+    - Execution Management: n8n_trigger_webhook_workflow, n8n_get_execution, n8n_list_executions, n8n_delete_execution
+    - System Tools: n8n_health_check, n8n_diagnostic, n8n_list_available_tools
+  - Custom HTTP tools:
+    - n8n_credentials_list/get/create/update/delete
+    - n8n_variables_list/create/update/delete
+    - n8n_tags_list/create/update/delete
+    - n8n_source_control_status/pull/push
+    - n8n_workflow_activate/deactivate
+  - MCP management tools are accessible via provided url_by_type/api_key_by_type.
+
+- Subscription detection & messaging rules:
+  - Never ask the user to confirm whether they have PRO. Infer access strictly from runtimeContext (role, url_by_type, api_key_by_type).
+  - If role == 'pro' AND url_by_type/api_key_by_type are present: DO NOT mention subscription or configuration at all. Execute the action directly and present the results.
+  - If role != 'pro': clearly state that the requested feature is PRO-only and suggest upgrading — do not ask for confirmation.
+  - If role == 'pro' but url_by_type/api_key_by_type are missing: state that PRO is active but API credentials are not configured; instruct to add them in settings or via integration — do not ask for subscription confirmation.
+`,
   // Динамический выбор модели на основе runtimeContext
   model: async ({ runtimeContext }: { runtimeContext: RuntimeContext }) => {
     // ожидаем ключи из runtimeContext: provider_llm, api_key_llm, model_llm
@@ -219,15 +280,59 @@ The most important information should be stored in the working memory according 
         try { await release(); } catch {}
       });
       const mcpTools = await client.getTools();
+      const debugTools = String(runtimeContext?.get('debug_tools' as any) || process.env.MASTRA_DEBUG_TOOLS || '').toLowerCase();
+      const shouldDebug = process.env.NODE_ENV !== 'production' || debugTools === '1' || debugTools === 'true';
+      if (shouldDebug) {
+        try {
+          // eslint-disable-next-line no-console
+          console.log('[MCP DEBUG] available tool ids', Object.keys(mcpTools || {}));
+        } catch {}
+      }
       if (role === 'pro') {
         // Expose PRO HTTP tools; inside each tool we validate presence of workflow ID and respond gracefully
-        return { ...mcpTools, ...n8nProTools } as any;
+        const merged = { ...mcpTools, ...n8nProTools } as Record<string, unknown>;
+        if (shouldDebug) {
+          try {
+            // eslint-disable-next-line no-console
+            console.log('[MCP DEBUG] final tool ids (merged MCP + n8nProTools)', Object.keys(merged || {}));
+          } catch {}
+        }
+        return merged as any;
       }
-      return mcpTools as any;
+      // Filter to Core tools for Free role using flexible id matching
+      const corePatterns: RegExp[] = [
+        /^agent_tools_documentation$/i,
+        /^agent_list_nodes$/i,
+        /^agent_get_node_info$/i,
+        /^agent_get_node_essentials$/i,
+        /^agent_search_nodes$/i,
+        /^agent_search_node_properties$/i,
+        /^agent_list_ai_tools$/i,
+        /^agent_get_node_as_tool_info$/i,
+      ];
+      const isCoreId = (id: string): boolean => corePatterns.some((re) => re.test(id));
+      const filtered: Record<string, unknown> = {};
+      for (const [id, tool] of Object.entries(mcpTools as Record<string, unknown>)) {
+        if (isCoreId(id)) filtered[id] = tool as any;
+      }
+      if (shouldDebug) {
+        try {
+          // eslint-disable-next-line no-console
+          console.log('[MCP DEBUG] filtered core tool ids', Object.keys(filtered || {}));
+        } catch {}
+      }
+      return filtered as any;
     } catch {
       try { await release(); } catch {}
       if (role === 'pro') {
-        return { ...n8nProTools } as any;
+        const proOnly = { ...n8nProTools } as Record<string, unknown>;
+        if (process.env.NODE_ENV !== 'production') {
+          try {
+            // eslint-disable-next-line no-console
+            console.log('[MCP DEBUG] final tool ids (n8nProTools only)', Object.keys(proOnly || {}));
+          } catch {}
+        }
+        return proOnly as any;
       }
       return {} as any;
     }
