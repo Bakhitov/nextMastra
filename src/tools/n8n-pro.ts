@@ -336,45 +336,7 @@ export const n8n_audit_generate = createTool({
 });
 
 // ------------- Executions -------------
-const executionsListSchema = z.object({
-  includeData: z.boolean().optional(),
-  status: z.enum(["error", "success", "waiting"]).optional(),
-  workflowId: z.string().optional(),
-  projectId: z.string().optional(),
-  limit: z.number().optional(),
-  cursor: z.string().optional(),
-});
-
-export const n8n_executions_list = createTool({
-  id: "agent_n8n_executions_list",
-  description: "Retrieve executions list: GET /api/v1/executions with filters and pagination.",
-  inputSchema: executionsListSchema,
-  execute: async (args, options) => {
-    const qs = buildQueryString(args.context || {});
-    return await n8nFetch(args.runtimeContext, `/api/v1/executions${qs}` , { method: "GET" }, options?.abortSignal);
-  },
-});
-
-export const n8n_executions_get = createTool({
-  id: "agent_n8n_executions_get",
-  description: "Retrieve execution by ID: GET /api/v1/executions/{id}. Optional includeData.",
-  inputSchema: z.object({ id: z.number(), includeData: z.boolean().optional() }),
-  execute: async (args, options) => {
-    const { id, includeData } = args.context;
-    const qs = buildQueryString({ includeData });
-    return await n8nFetch(args.runtimeContext, `/api/v1/executions/${encodeURIComponent(String(id))}${qs}`, { method: "GET" }, options?.abortSignal);
-  },
-});
-
-export const n8n_executions_delete = createTool({
-  id: "agent_n8n_executions_delete",
-  description: "Delete execution by ID: DELETE /api/v1/executions/{id}.",
-  inputSchema: z.object({ id: z.number() }),
-  execute: async (args, options) => {
-    const { id } = args.context;
-    return await n8nFetch(args.runtimeContext, `/api/v1/executions/${encodeURIComponent(String(id))}`, { method: "DELETE" }, options?.abortSignal);
-  },
-});
+// Перенесено на MCP-инструменты (n8n_list_executions / n8n_get_execution / n8n_delete_execution)
 
 // ------------- Credentials Extras -------------
 export const n8n_credentials_get_type_schema = createTool({
@@ -527,9 +489,6 @@ export const n8nProTools = {
   agent_n8n_credentials_delete: n8n_credentials_delete,
   // Hidden: variables/tags/source-control tools
   agent_n8n_audit_generate: n8n_audit_generate,
-  agent_n8n_executions_list: n8n_executions_list,
-  agent_n8n_executions_get: n8n_executions_get,
-  agent_n8n_executions_delete: n8n_executions_delete,
   agent_n8n_credentials_get_type_schema: n8n_credentials_get_type_schema,
   agent_n8n_credentials_transfer: n8n_credentials_transfer,
   // Hidden: projects tools
